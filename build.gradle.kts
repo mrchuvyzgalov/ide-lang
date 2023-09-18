@@ -5,7 +5,7 @@ plugins {
     id("org.jetbrains.compose")
 }
 
-group = "com.ide-development"
+group = "com.ide-lang"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -28,7 +28,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "ide-development-template"
+            packageName = "ide-lang"
             packageVersion = "1.0.0"
         }
     }
