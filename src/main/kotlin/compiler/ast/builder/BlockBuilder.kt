@@ -14,6 +14,7 @@ object BlockBuilder : AstNodeBuilder {
         add(PrintBuilder)
         add(AssignmentBuilder)
         add(CallBuilder)
+        add(ReturnBuilder)
     }
 
     override fun check(node: CstNode): Boolean =

@@ -1,10 +1,8 @@
-func plusOne(n) {
-    if (n == 0) {
+func count(x) {
+    if (x == 0) {
         return 0;
     }
-    return plusOne(n - 1) + 1;
+    return count(x - 1) + 1;
 }
 
-print(plusOne(10));
-
-
+print(count(10));

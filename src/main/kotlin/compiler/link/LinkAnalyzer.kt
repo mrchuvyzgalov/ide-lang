@@ -49,16 +49,11 @@ class LinkAnalyzer(private val ast: AstNode) {
                 result[command] = findDeclaration(command)
                 command.args.forEach { analyze(it as AstNode) }
             }
-            is AFunBlockStmt -> {
-                analyze(command.block)
-                analyze(command.ret)
-            }
             is ABinaryOp -> {
                 analyze(command.left as AstNode)
                 analyze(command.right as AstNode)
             }
             is AUnaryOp -> analyze(command.subexp as AstNode)
-            is AProcBlockStmt -> analyze(command.block)
             is ABlock -> command.body.forEach { analyze(it as AstNode) }
             is AReturnStmt -> analyze(command.exp as AstNode)
             is AParamDeclaration -> {

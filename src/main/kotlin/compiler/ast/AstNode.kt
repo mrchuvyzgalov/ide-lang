@@ -58,10 +58,8 @@ data class AIfStmt(val guard: AExpr, val ifBranch: ABlock, val elseBranch: ABloc
 data class APrintStmt(val exp: AExpr, val location: Location) : AstNode(location), AStmtInNestedBlock, AExpr, ABlockCommand
 data class AReturnStmt(val exp: AExpr, val location: Location) : AstNode(location), ABlockCommand
 data class AWhileStmt(val guard: AExpr, val innerBlock: ABlock, val location: Location) : AstNode(location), AStmtInNestedBlock, ABlockCommand
-data class AFunDeclaration(val name: String, val params: List<AParamDeclaration>, val stmts: AFunBlockStmt, val location: Location) :
+data class AFunDeclaration(val name: String, val params: List<AParamDeclaration>, val stmts: ABlock, val location: Location) :
     AstNode(location), ADeclaration
-data class AFunBlockStmt(val block: ABlock, val location: Location?) : AstNode(location), AStmt
-data class AProcBlockStmt(val block: ABlock, val location: Location?) : AstNode(location), AStmt
-data class AProcDeclaration(val name: String, val params: List<AParamDeclaration>, val stmts: AProcBlockStmt, val location: Location) :
+data class AProcDeclaration(val name: String, val params: List<AParamDeclaration>, val stmts: ABlock, val location: Location) :
     AstNode(location), ADeclaration
 data class AProgram(val commands : List<AstNode>, val location: Location?) : AstNode(location)

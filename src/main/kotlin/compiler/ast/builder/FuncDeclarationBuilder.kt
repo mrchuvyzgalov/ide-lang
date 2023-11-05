@@ -45,23 +45,7 @@ object FuncDeclarationBuilder : AstNodeBuilder {
             AParamDeclaration(id.value, id.loc)
         }.toList()
 
-    private fun getBlock(node: CstNode): AFunBlockStmt {
-        val blockNode = getBlockNode(node.children[0])
-        val returnNode = getReturnNode(node)
-
-        val block = BlockBuilder.build(blockNode)
-        val returnToken = getReturn(returnNode)
-        val returnStmt = AReturnStmt(ExpressionBuilder.build(returnNode.children[0]) as AExpr, returnToken.loc)
-
-        return AFunBlockStmt(block, returnStmt, null)
-    }
-
-    private fun getReturn(node: CstNode): ReturnToken {
-        if (node.token is ReturnToken) {
-            return node.token
-        }
-        error("Expected ReturnToken, but found ${node.token}")
-    }
+    private fun getBlock(node: CstNode): ABlock = BlockBuilder.build(node)
 
     private fun getReturnNode(node: CstNode): CstNode {
         val commandsNumber = node.children.size - 1

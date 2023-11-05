@@ -2,6 +2,7 @@ package compiler
 
 import compiler.analysis.type.*
 import compiler.ast.*
+import compiler.function.FunctionAnalyzer
 import compiler.lexer.LexicalAnalyzer
 import compiler.link.LinkAnalyzer
 import compiler.syntax.SyntaxAnalyzer
@@ -10,11 +11,14 @@ class Compiler(text: String) {
 
     private val ast: AstNode
     private val links: Map<AstNode, ADeclaration>
+    private val functionReturns: Map<AReturnStmt, AFunDeclaration>
     private val types: Map<AstNode, IdlType>
 
     private val integers = mutableMapOf<ADeclaration, Int>()
     private val strings = mutableMapOf<ADeclaration, String>()
     private val booleans = mutableMapOf<ADeclaration, Boolean>()
+
+    private var needToStopBlock = false
 
     init {
         val tokens = LexicalAnalyzer(text).tokenize()
@@ -22,8 +26,9 @@ class Compiler(text: String) {
 
         ast = AstBuilder(cstNodes).build()
         links = LinkAnalyzer(ast).analyze()
-        types = TypeAnalyzer(ast, links).analyze()
-
+        functionReturns = FunctionAnalyzer(links).analyze()
+        types = TypeAnalyzer(ast, links, functionReturns).analyze()
+//
 //        for (type in types) {
 //            if (type.key is AVarDeclaration) {
 //                val declaration = type.key as AVarDeclaration
@@ -66,7 +71,7 @@ class Compiler(text: String) {
         val declaration = links[astNode] ?:  error("Declaration for $astNode was not found")
         if (declaration is AProcDeclaration) {
             assignParams(astNode, declaration.params)
-            declaration.stmts.block.body.forEach { blockCommand(it as AstNode) }
+            declaration.stmts.body.forEach { blockCommand(it as AstNode) }
         }
     }
 
@@ -74,20 +79,52 @@ class Compiler(text: String) {
         val declaration = links[astNode] ?:  error("Declaration for $astNode was not found")
         if (declaration is AFunDeclaration) {
             assignParams(astNode, declaration.params)
-            declaration.stmts.block.body.forEach { blockCommand(it as AstNode) }
+            declaration.stmts.body.forEach { blockCommand(it as AstNode) }
 
-            return expressionResult(declaration.stmts.ret.exp)
+            val result = extractFunctionResult(declaration) ?: error("Result for $astNode was not calculated")
+            needToStopBlock = false
+
+            return result
         }
         error("Declaration $declaration is not AFunDeclaration")
+    }
+
+    private fun extractFunctionResult(declaration: AFunDeclaration): String? =
+        when (types[declaration]) {
+            is IntegerType -> extractIntFunctionResult(declaration)?.toString()
+            is BooleanType -> extractBoolFunctionResult(declaration)?.toString()
+            is StringType -> extractStringFunctionResult(declaration)
+            else -> null
+        }
+
+    private fun extractIntFunctionResult(declaration: AFunDeclaration): Int? {
+        val result = integers[declaration]
+        integers.remove(declaration)
+        return result
+    }
+
+    private fun extractBoolFunctionResult(declaration: AFunDeclaration): Boolean? {
+        val result = booleans[declaration]
+        booleans.remove(declaration)
+        return result
+    }
+
+    private fun extractStringFunctionResult(declaration: AFunDeclaration): String? {
+        val result = strings[declaration]
+        strings.remove(declaration)
+        return result
     }
 
     private fun funcBoolStmt(astNode: ACallExpr): Boolean {
         val declaration = links[astNode] ?:  error("Declaration for $astNode was not found")
         if (declaration is AFunDeclaration) {
             assignParams(astNode, declaration.params)
-            declaration.stmts.block.body.forEach { blockCommand(it as AstNode) }
+            declaration.stmts.body.forEach { blockCommand(it as AstNode) }
 
-            return getBoolResult(declaration.stmts.ret.exp)
+            val result = extractBoolFunctionResult(declaration) ?: error("Result for $astNode was not calculated")
+            needToStopBlock = false
+
+            return result
         }
         error("Declaration $declaration is not AFunDeclaration")
     }
@@ -104,9 +141,12 @@ class Compiler(text: String) {
         val declaration = links[astNode] ?:  error("Declaration for $astNode was not found")
         if (declaration is AFunDeclaration) {
             assignParams(astNode, declaration.params)
-            declaration.stmts.block.body.forEach { blockCommand(it as AstNode) }
+            declaration.stmts.body.forEach { blockCommand(it as AstNode) }
 
-            return getIntResult(declaration.stmts.ret.exp)
+            val result = extractIntFunctionResult(declaration) ?: error("Result for $astNode was not calculated")
+            needToStopBlock = false
+
+            return result
         }
         error("Declaration $declaration is not AFunDeclaration")
     }
@@ -115,25 +155,34 @@ class Compiler(text: String) {
         val declaration = links[astNode] ?:  error("Declaration for $astNode was not found")
         if (declaration is AFunDeclaration) {
             assignParams(astNode, declaration.params)
-            declaration.stmts.block.body.forEach { blockCommand(it as AstNode) }
+            declaration.stmts.body.forEach { blockCommand(it as AstNode) }
 
-            return getStringResult(declaration.stmts.ret.exp)
+            val result = extractStringFunctionResult(declaration) ?: error("Result for $astNode was not calculated")
+            needToStopBlock = false
+
+            return result
         }
         error("Declaration $declaration is not AFunDeclaration")
     }
 
     private fun whileStmt(astNode: AWhileStmt) {
+        if (needToStopBlock) return
+
         while (getBoolResult(astNode.guard)) {
             astNode.innerBlock.body.forEach { blockCommand(it as AstNode) }
         }
     }
 
     private fun ifStmt(astNode: AIfStmt) {
+        if (needToStopBlock) return
+
         if (getBoolResult(astNode.guard)) astNode.ifBranch.body.forEach { blockCommand(it as AstNode) }
         else astNode.elseBranch?.body?.forEach { blockCommand(it as AstNode) }
     }
 
     private fun blockCommand(astNode: AstNode) {
+        if (needToStopBlock) return
+
         when (astNode) {
             is APrintStmt -> runPrint(astNode)
             is AVarDeclarations -> varDeclarations(astNode)
@@ -141,6 +190,16 @@ class Compiler(text: String) {
             is AIfStmt -> ifStmt(astNode)
             is AWhileStmt -> whileStmt(astNode)
             is ACallExpr -> callStmt(astNode)
+            is AReturnStmt ->  {
+                val declaration = functionReturns[astNode] ?: error("Function for $astNode was not found")
+                val expr = astNode.exp
+
+                if (types[expr as AstNode] is BooleanType) booleans[declaration] = getBoolResult(expr)
+                else if (types[expr] is StringType) strings[declaration] = getStringResult(expr)
+                else if (types[expr] is IntegerType) integers[declaration] = getIntResult(expr)
+
+                needToStopBlock = true
+            }
         }
     }
 
@@ -217,6 +276,8 @@ class Compiler(text: String) {
             if (node.operator is LessOrEqualThan) return getIntResult(node.left) <= getIntResult(node.right)
             if (node.operator is GreaterThan) return getIntResult(node.left) > getIntResult(node.right)
             if (node.operator is GreaterOrEqualThan) return getIntResult(node.left) >= getIntResult(node.right)
+            if (node.operator is Equal) return expressionResult(node.left) == expressionResult(node.right)
+            if (node.operator is NotEqual) return expressionResult(node.left) != expressionResult(node.right)
         }
         if (node is AIdentifier) {
             val declaration = links[node] ?: error("Declaration for $node was not found")

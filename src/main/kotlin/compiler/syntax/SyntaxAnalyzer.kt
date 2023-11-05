@@ -271,7 +271,7 @@ class SyntaxAnalyzer(private val tokens: List<Token>) {
 
         consumeToken(ClosingCurlyBracketToken::class.java)
 
-        return CstNode().apply { children.add(CstNode(children = nodes)) }
+        return CstNode().apply { children.addAll(nodes) }
     }
 
     private fun returnStmt(): CstNode {

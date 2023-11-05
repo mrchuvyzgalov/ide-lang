@@ -2,7 +2,9 @@ package compiler.analysis.type
 
 import compiler.ast.*
 
-class TypeAnalyzer(private val tree: AstNode, private val links: Map<AstNode, ADeclaration>) {
+class TypeAnalyzer(private val tree: AstNode,
+                   private val links: Map<AstNode, ADeclaration>,
+                   private val functionResults: Map<AReturnStmt, AFunDeclaration>) {
 
     private val types = mutableMapOf<AstNode, AtomicType>()
     private val rules = mutableListOf<TypeRule>()
@@ -50,7 +52,9 @@ class TypeAnalyzer(private val tree: AstNode, private val links: Map<AstNode, AD
             if (it.key is TypeWrapper && it.value is AtomicType) {
                 val wrapper = it.key as TypeWrapper
 
-                if (wrapper.node is AIdentifier || wrapper.node is AVarDeclaration || wrapper.node is AParamDeclaration){
+                if (wrapper.node is AIdentifier
+                    || wrapper.node is AVarDeclaration
+                    || wrapper.node is AParamDeclaration){
                     val declaration = links[wrapper.node] ?: error("Declaration for ${wrapper.node} was not found")
 
                     if (types.containsKey(declaration as AstNode)) {
@@ -63,7 +67,7 @@ class TypeAnalyzer(private val tree: AstNode, private val links: Map<AstNode, AD
                         types[wrapper.node] = it.value as AtomicType
                     }
                 }
-                else if (wrapper.node is AExpr) {
+                else if (wrapper.node is AExpr || wrapper.node is AFunDeclaration) {
                     types[wrapper.node] = it.value as AtomicType
                 }
             }
@@ -120,7 +124,7 @@ class TypeAnalyzer(private val tree: AstNode, private val links: Map<AstNode, AD
                             rules.add(TypeRule(TypeWrapper(declaration.params[i]), TypeWrapper(node.args[i] as AstNode)))
                         }
 
-                        rules.add(TypeRule(TypeWrapper(node), TypeWrapper(declaration.stmts.ret.exp as AstNode)))
+                        rules.add(TypeRule(TypeWrapper(node), TypeWrapper(declaration as AstNode)))
                     }
                     else if (declaration is AProcDeclaration) {
                         if (declaration.params.size != node.args.size) error("Arguments number for $node is not ${declaration.params.size}")
@@ -187,6 +191,10 @@ class TypeAnalyzer(private val tree: AstNode, private val links: Map<AstNode, AD
                     rules.add(TypeRule(TypeWrapper(node.subexp as AstNode), BooleanType))
                 }
             }
+            is AReturnStmt -> {
+                val declaration = functionResults[node] ?:  error("Declaration for $node result was not found")
+                rules.add(TypeRule(TypeWrapper(declaration as AstNode), TypeWrapper(node.exp as AstNode)))
+            }
         }
         analyzeChildren(node)
     }
@@ -197,10 +205,14 @@ class TypeAnalyzer(private val tree: AstNode, private val links: Map<AstNode, AD
             is AVarDeclaration -> analyze(node.value as AstNode)
             is AAssignStmt -> analyze(node.right as AstNode)
             is AIfStmt -> {
+                analyze(node.guard as AstNode)
                 analyze(node.ifBranch)
                 node.elseBranch?.let { analyze(it) }
             }
-            is AWhileStmt -> analyze(node.innerBlock)
+            is AWhileStmt -> {
+                analyze(node.guard as AstNode)
+                analyze(node.innerBlock)
+            }
             is ABlock -> node.body.forEach { analyze(it as AstNode) }
             is ABinaryOp -> {
                 analyze(node.left as AstNode)
@@ -208,12 +220,10 @@ class TypeAnalyzer(private val tree: AstNode, private val links: Map<AstNode, AD
             }
             is AUnaryOp -> analyze(node.subexp as AstNode)
             is APrintStmt -> analyze(node.exp as AstNode)
-            is AFunDeclaration -> {
-                analyze(node.stmts.block)
-                analyze(node.stmts.ret.exp as AstNode)
-            }
-            is AProcDeclaration -> analyze(node.stmts.block)
+            is AFunDeclaration -> analyze(node.stmts)
+            is AProcDeclaration -> analyze(node.stmts)
             is ACallExpr -> node.args.forEach { analyze(it as AstNode) }
+            is AReturnStmt -> analyze(node.exp as AstNode)
         }
     }
 }

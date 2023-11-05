@@ -43,5 +43,5 @@ object ProcDeclarationBuilder : AstNodeBuilder {
             AParamDeclaration(id.value, id.loc)
         }.toList()
 
-    private fun getBlock(node: CstNode): AProcBlockStmt = AProcBlockStmt(BlockBuilder.build(node), null)
+    private fun getBlock(node: CstNode): ABlock = BlockBuilder.build(node)
 }
