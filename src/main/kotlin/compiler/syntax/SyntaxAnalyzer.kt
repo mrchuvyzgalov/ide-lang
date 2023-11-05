@@ -33,6 +33,7 @@ class SyntaxAnalyzer(private val tokens: List<Token>) {
             is WhileToken -> whileDeclaration()
             is PrintToken -> printCall()
             is IdentifierToken -> assignmentOrFuncOrProcCall()
+            is ReturnToken -> returnStmt()
             else -> null
         }
 
@@ -268,14 +269,9 @@ class SyntaxAnalyzer(private val tokens: List<Token>) {
             node = nodeInBlock()
         }
 
-        val returnStmt = returnStmt()
-
         consumeToken(ClosingCurlyBracketToken::class.java)
 
-        return CstNode().apply {
-            children.add(CstNode(children = nodes))
-            children.add(returnStmt)
-        }
+        return CstNode().apply { children.add(CstNode(children = nodes)) }
     }
 
     private fun returnStmt(): CstNode {

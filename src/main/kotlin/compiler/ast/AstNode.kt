@@ -60,7 +60,7 @@ data class AReturnStmt(val exp: AExpr, val location: Location) : AstNode(locatio
 data class AWhileStmt(val guard: AExpr, val innerBlock: ABlock, val location: Location) : AstNode(location), AStmtInNestedBlock, ABlockCommand
 data class AFunDeclaration(val name: String, val params: List<AParamDeclaration>, val stmts: AFunBlockStmt, val location: Location) :
     AstNode(location), ADeclaration
-data class AFunBlockStmt(val block: ABlock, val ret: AReturnStmt, val location: Location?) : AstNode(location), AStmt
+data class AFunBlockStmt(val block: ABlock, val location: Location?) : AstNode(location), AStmt
 data class AProcBlockStmt(val block: ABlock, val location: Location?) : AstNode(location), AStmt
 data class AProcDeclaration(val name: String, val params: List<AParamDeclaration>, val stmts: AProcBlockStmt, val location: Location) :
     AstNode(location), ADeclaration
